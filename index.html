@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>中国省份猜猜看 · 地理学习小游戏</title>
+<style>
+  :root{
+    --blue:#2b6cb0; --blue2:#4299e1; --ink:#1f2d3d;
+    --prov:#cfe3f7; --prov-stroke:#7aa7d6;
+    --sil:#2f4b7c; --ok:#2f855a; --okbg:#e6f6ec;
+    --no:#c53030; --nobg:#fdecec; --info:#2b6cb0; --infobg:#e8f1fb;
+    --warn:#b7791f; --warnbg:#fff7e6;
+    --line:#e2e8f0; --card:#ffffff;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:"PingFang SC","Microsoft YaHei","Hiragino Sans GB",system-ui,sans-serif;
+    background:linear-gradient(160deg,#eaf3ff 0%,#f6fbff 55%,#eef7f1 100%);
+    color:var(--ink); min-height:100vh; min-height:100dvh; padding:clamp(12px,2.4vw,22px) clamp(10px,2vw,16px) clamp(24px,4vw,44px);
+  }
+  .app{max-width:1100px;margin:0 auto;width:100%;}
+  header.top{
+    text-align:center;margin-bottom:18px;
+  }
+  header.top h1{
+    font-size:26px;margin:0 0 6px;color:var(--blue);
+    letter-spacing:1px;
+  }
+  header.top p{margin:0;color:#5a6b7b;font-size:14px;}
+
+  .screen{display:block;}
+  .hidden{display:none !important;}
+
+  .card{
+    background:var(--card);border-radius:18px;
+    box-shadow:0 10px 30px rgba(43,108,176,.10);
+    padding:18px;
+  }
+
+  /* 全图 */
+  .mapwrap{padding:8px;}
+  .map-svg{width:100%;height:auto;display:block;}
+  /* 首页/尾页整页地图：限高自适应视口，配合 preserveAspectRatio 完整缩放，一屏显示 */
+  .mapwrap.fit{height:clamp(240px, calc(100dvh - 460px), 620px);}
+  .mapwrap.fit .map-svg{height:100%;}
+  .map-svg .prov{fill:var(--prov);stroke:var(--prov-stroke);stroke-width:0.25;}
+
+  .intro{margin:14px auto 8px;max-width:760px;line-height:1.9;color:#46566a;font-size:15px;
+    background:#f4f9ff;border:1px dashed #b9d6f3;border-radius:14px;padding:14px 18px;}
+  .intro b{color:var(--blue);}
+
+  /* 按钮通用 */
+  .btn{
+    border:none;cursor:pointer;font-size:17px;font-weight:600;
+    border-radius:12px;padding:13px 20px;min-height:50px;color:#fff;
+    transition:transform .06s ease, box-shadow .15s ease, opacity .15s;
+    font-family:inherit;
+  }
+  .btn:active{transform:translateY(1px);}
+  .btn:disabled{opacity:.45;cursor:not-allowed;}
+  .btn-start{background:linear-gradient(135deg,#2b6cb0,#4299e1);box-shadow:0 6px 16px rgba(43,108,176,.35);display:block;margin:6px auto 0;min-width:220px;}
+  .btn-answer{background:linear-gradient(135deg,#ed8936,#f6ad55);box-shadow:0 5px 14px rgba(237,137,54,.35);}
+  .btn-skip{background:linear-gradient(135deg,#718096,#a0aec0);box-shadow:0 5px 14px rgba(113,128,150,.30);}
+  .btn-next{background:linear-gradient(135deg,#38a169,#48bb78);box-shadow:0 5px 14px rgba(56,161,105,.32);}
+
+  /* 答题布局 */
+  .layout{display:flex;gap:18px;align-items:stretch;}
+  .mapcol{flex:1 1 62%;min-width:0;}
+  .statscol{flex:1 1 38%;min-width:220px;display:flex;flex-direction:column;gap:12px;}
+
+  .qhead{font-size:15px;color:#5a6b7b;margin-bottom:8px;font-weight:600;}
+  .qhead b{color:var(--blue);font-size:18px;}
+  .silwrap{
+    background:radial-gradient(circle at 50% 40%,#fbfdff 0%,#eef4fb 100%);
+    border:1px solid var(--line);border-radius:14px;
+    height:clamp(240px,42vh,440px);display:flex;align-items:center;justify-content:center;padding:10px;
+  }
+  .sil-svg{width:100%;height:100%;}
+  .sil-svg .sil-prov{
+    fill:var(--sil);
+    filter:drop-shadow(0 6px 10px rgba(47,75,124,.30));
+  }
+  .feedback{
+    margin-top:12px;min-height:26px;font-size:16px;font-weight:600;
+    border-radius:10px;padding:10px 14px;text-align:center;line-height:1.5;
+  }
+  .feedback.ok{background:var(--okbg);color:var(--ok);}
+  .feedback.no{background:var(--nobg);color:var(--no);}
+  .feedback.info{background:var(--infobg);color:var(--info);}
+  .feedback.warn{background:var(--warnbg);color:var(--warn);}
+
+  /* 统计卡 */
+  .stat{
+    background:#f7fbff;border:1px solid #e4eefb;border-radius:14px;
+    padding:14px 16px;display:flex;align-items:center;justify-content:space-between;
+  }
+  .stat span{font-size:15px;color:#5a6b7b;}
+  .stat b{font-size:26px;color:var(--blue);font-variant-numeric:tabular-nums;}
+  .stat.correct b{color:var(--ok);}
+  .stat.rate b{color:#b7791f;}
+
+  .progress{height:14px;background:#eef2f7;border-radius:10px;overflow:hidden;border:1px solid var(--line);}
+  .progress #progressBar{height:100%;width:0;background:linear-gradient(90deg,#4299e1,#48bb78);transition:width .35s ease;border-radius:10px;}
+  .progress-label{font-size:13px;color:#7a8a9a;text-align:center;}
+
+  /* 控制区 */
+  .controls{margin-top:16px;}
+  .answer-row{display:flex;gap:10px;}
+  #answerInput{
+    flex:1;font-size:18px;padding:14px 16px;border:2px solid #cdddf0;border-radius:12px;
+    outline:none;font-family:inherit;transition:border-color .15s;
+  }
+  #answerInput:focus{border-color:var(--blue2);}
+  #answerInput:disabled{background:#f1f4f8;color:#9aa7b4;}
+  .btns{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;}
+  .btns .btn{flex:1;min-width:120px;}
+
+  .hint{font-size:13px;color:#8a98a8;margin-top:8px;text-align:center;}
+
+  /* 结束页 */
+  .result{
+    text-align:center;font-size:18px;line-height:1.9;margin:16px auto;
+    background:linear-gradient(135deg,#eafaf0,#e8f1fb);border:1px solid #cdeccf;
+    border-radius:16px;padding:20px;max-width:680px;
+  }
+  .result b{color:var(--blue);font-size:22px;}
+  .result .big{color:var(--ok);font-size:30px;}
+
+  /* 参考全图弹层 */
+  .modal{position:fixed;inset:0;background:rgba(20,35,55,.55);display:none;align-items:center;justify-content:center;padding:18px;z-index:50;}
+  .modal.show{display:flex;}
+  .modal .box{background:#fff;border-radius:16px;max-width:760px;width:100%;padding:14px;position:relative;}
+  .modal .box .close{position:absolute;right:14px;top:10px;border:none;background:none;font-size:26px;color:#888;cursor:pointer;}
+  .refbtn{background:#fff;border:1px solid var(--blue2);color:var(--blue);border-radius:10px;padding:9px 14px;font-size:14px;cursor:pointer;font-family:inherit;font-weight:600;}
+
+  @media (max-width:860px){
+    .layout{flex-direction:column;}
+    .mapcol,.statscol{flex:1 1 auto;min-width:0;}
+    .silwrap{height:clamp(220px,38vh,340px);}
+    header.top h1{font-size:22px;}
+    .btns{flex-direction:column;}
+    .btns .btn{min-width:0;}
+  }
+  @media (max-width:480px){
+    header.top h1{font-size:19px;}
+    header.top p{font-size:13px;}
+    .stat b{font-size:22px;}
+    .silwrap{height:clamp(200px,34vh,300px);}
+    #answerInput{font-size:16px;padding:12px 14px;}
+    .btn{font-size:16px;padding:12px 16px;min-height:46px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1>🗺️ 中国省份猜猜看</h1>
+    <p>看剪影，猜省份 —— 边玩边记中国 34 个省级行政区</p>
+  </header>
+
+  <!-- 开始页 -->
+  <section id="startScreen" class="screen card">
+    <div class="mapwrap fit" id="startMap"></div>
+    <div class="intro">
+      游戏规则：屏幕上会<b>随机出现一个省份的剪影</b>（每个省份只出现一次）。<br>
+      请在下方<b>输入省份名称</b>（如「广东」「内蒙古」），按回车提交；<br>
+      想不出来可点<b>「显示答案」</b>，想跳过就点<b>「跳过」</b>。<br>
+      右侧会实时显示你的<b>累计答题</b>与<b>回答正确</b>数量，全部答完后给出正确率。
+    </div>
+    <button id="startBtn" class="btn btn-start">开始答题 🚀</button>
+  </section>
+
+  <!-- 答题页 -->
+  <section id="quizScreen" class="screen hidden">
+    <div class="layout">
+      <div class="mapcol card">
+        <div class="qhead">第 <b id="qIndex">1</b> / <span id="qTotal">34</span> 题　·　这是哪个省级行政区？</div>
+        <div class="silwrap" id="silWrap"></div>
+        <div id="feedback" class="feedback"></div>
+        <div style="text-align:center;margin-top:10px;">
+          <button id="refBtn" class="refbtn">📍 看完整中国地图</button>
+        </div>
+      </div>
+      <aside class="statscol">
+        <div class="stat"><span>累计答题</span><b id="statAnswered">0</b></div>
+        <div class="stat correct"><span>回答正确</span><b id="statCorrect">0</b></div>
+        <div class="stat rate"><span>正确率</span><b id="statRate">—</b></div>
+        <div class="progress"><div id="progressBar"></div></div>
+        <div class="progress-label" id="progressLabel">进度 0 / 34</div>
+      </aside>
+    </div>
+
+    <div class="controls card" style="margin-top:16px;">
+      <div class="answer-row">
+        <input id="answerInput" type="text" placeholder="输入你猜的省份名称，回车提交…" autocomplete="off" />
+      </div>
+      <div class="btns">
+        <button id="showBtn" class="btn btn-answer">💡 显示答案</button>
+        <button id="skipBtn" class="btn btn-skip">⏭️ 跳过</button>
+        <button id="nextBtn" class="btn btn-next hidden">下一题 →</button>
+      </div>
+      <div class="hint" id="ctrlHint">提示：直辖市写城市名（如「北京」），自治区可写简称（如「新疆」「广西」），特别行政区写「香港」「澳门」。</div>
+    </div>
+  </section>
+
+  <!-- 结束页 -->
+  <section id="endScreen" class="screen card hidden">
+    <div class="mapwrap fit" id="endMap"></div>
+    <div class="result" id="resultText"></div>
+    <button id="restartBtn" class="btn btn-start">🔄 再来一次</button>
+  </section>
+</div>
+
+<!-- 参考全图弹层 -->
+<div class="modal" id="refModal">
+  <div class="box">
+    <button class="close" id="refClose">×</button>
+    <div class="mapwrap" id="refMap"></div>
+  </div>
+</div>
+
+<script src="china_data.js"></script>
+<script>
+(function(){
+  "use strict";
+  var GEO = window.CHINA_GEO;
+  var LAT0 = 35 * Math.PI / 180, K = Math.cos(LAT0);
+  function proj(lng, lat){ return [lng * K, -lat]; }
+
+  // 省级名称 -> 常用简称（用于展示答案与匹配）
+  var SHORT = {
+    "北京市":"北京","天津市":"天津","河北省":"河北","山西省":"山西","内蒙古自治区":"内蒙古",
+    "辽宁省":"辽宁","吉林省":"吉林","黑龙江省":"黑龙江","上海市":"上海","江苏省":"江苏",
+    "浙江省":"浙江","安徽省":"安徽","福建省":"福建","江西省":"江西","山东省":"山东",
+    "河南省":"河南","湖北省":"湖北","湖南省":"湖南","广东省":"广东","广西壮族自治区":"广西",
+    "海南省":"海南","重庆市":"重庆","四川省":"四川","贵州省":"贵州","云南省":"云南",
+    "西藏自治区":"西藏","陕西省":"陕西","甘肃省":"甘肃","青海省":"青海","宁夏回族自治区":"宁夏",
+    "新疆维吾尔自治区":"新疆","台湾省":"台湾","香港特别行政区":"香港","澳门特别行政区":"澳门"
+  };
+  // 可接受答案：全称 + 简称
+  var ACCEPT = {};
+  Object.keys(SHORT).forEach(function(k){ ACCEPT[k] = [k, SHORT[k]]; });
+
+  function buildPath(geom){
+    var polys = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
+    var d = "";
+    for(var p=0;p<polys.length;p++){
+      var poly = polys[p];
+      for(var r=0;r<poly.length;r++){
+        var ring = poly[r], first = true;
+        for(var i=0;i<ring.length;i++){
+          var xy = proj(ring[i][0], ring[i][1]);
+          d += (first ? "M" : "L") + xy[0].toFixed(2) + "," + xy[1].toFixed(2);
+          first = false;
+        }
+        d += "Z";
+      }
+    }
+    return d;
+  }
+  function bbox(geom){
+    var polys = geom.type === "Polygon" ? [geom.coordinates] : geom.coordinates;
+    var m = [1e9,1e9,-1e9,-1e9];
+    for(var p=0;p<polys.length;p++){
+      var poly = polys[p];
+      for(var r=0;r<poly.length;r++){
+        var ring = poly[r];
+        for(var i=0;i<ring.length;i++){
+          var xy = proj(ring[i][0], ring[i][1]);
+          if(xy[0]<m[0])m[0]=xy[0]; if(xy[1]<m[1])m[1]=xy[1];
+          if(xy[0]>m[2])m[2]=xy[0]; if(xy[1]>m[3])m[3]=xy[1];
+        }
+      }
+    }
+    return m;
+  }
+
+  // 预计算每个省的剪影路径与包围盒
+  var provinceData = {};
+  var allFeatures = GEO.features;
+  allFeatures.forEach(function(f){
+    if(!f.properties.name) return;
+    provinceData[f.properties.name] = { d: buildPath(f.geometry), bb: bbox(f.geometry) };
+  });
+
+  // 全局包围盒（含南海，用于完整中国地图）
+  var gb = [1e9,1e9,-1e9,-1e9];
+  allFeatures.forEach(function(f){
+    var b = bbox(f.geometry);
+    if(b[0]<gb[0])gb[0]=b[0]; if(b[1]<gb[1])gb[1]=b[1];
+    if(b[2]>gb[2])gb[2]=b[2]; if(b[3]>gb[3])gb[3]=b[3];
+  });
+
+  function padBBox(b, p){
+    var w = b[2]-b[0], h = b[3]-b[1];
+    return [b[0]-w*p, b[1]-h*p, b[2]+w*p, b[3]+h*p];
+  }
+
+  function fullMapSVG(){
+    var b = padBBox(gb, 0.04);
+    var vb = b[0]+" "+b[1]+" "+(b[2]-b[0])+" "+(b[3]-b[1]);
+    var paths = "";
+    allFeatures.forEach(function(f){
+      var d = f.properties.name ? provinceData[f.properties.name].d : buildPath(f.geometry);
+      paths += '<path class="prov" d="'+d+'"/>';
+    });
+    return '<svg class="map-svg" viewBox="'+vb+'" preserveAspectRatio="xMidYMid meet">'+paths+'</svg>';
+  }
+  function silhouetteSVG(name){
+    var b = padBBox(provinceData[name].bb, 0.14);
+    var vb = b[0]+" "+b[1]+" "+(b[2]-b[0])+" "+(b[3]-b[1]);
+    return '<svg class="sil-svg" viewBox="'+vb+'" preserveAspectRatio="xMidYMid meet"><path class="sil-prov" d="'+provinceData[name].d+'"/></svg>';
+  }
+
+  // ---- 状态与逻辑 ----
+  var NAMES = Object.keys(provinceData);
+  var order = [], pos = 0, answered = 0, correct = 0, current = null, resolved = false, confirmGuard = false;
+
+  function shuffle(a){
+    for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; }
+    return a;
+  }
+  function $(id){ return document.getElementById(id); }
+
+  function show(id){ $(id).classList.remove("hidden"); }
+  function hide(id){ $(id).classList.add("hidden"); }
+
+  function updateStats(){
+    $("statAnswered").textContent = answered;
+    $("statCorrect").textContent = correct;
+    $("statRate").textContent = answered > 0 ? (correct/answered*100).toFixed(1) + "%" : "—";
+    $("progressLabel").textContent = "进度 " + answered + " / " + NAMES.length;
+    $("progressBar").style.width = (answered / NAMES.length * 100) + "%";
+  }
+
+  function startQuiz(){
+    order = shuffle(NAMES.slice());
+    pos = 0; answered = 0; correct = 0;
+    $("qTotal").textContent = NAMES.length;
+    hide("startScreen"); hide("endScreen"); show("quizScreen");
+    nextQuestion();
+  }
+
+  function nextQuestion(){
+    if(pos >= order.length){ finish(); return; }
+    current = order[pos];
+    resolved = false;
+    $("qIndex").textContent = pos + 1;
+    $("silWrap").innerHTML = silhouetteSVG(current);
+    var input = $("answerInput");
+    input.value = ""; input.disabled = false; input.focus();
+    var fb = $("feedback"); fb.textContent = ""; fb.className = "feedback";
+    $("showBtn").classList.remove("hidden"); $("skipBtn").classList.remove("hidden");
+    $("nextBtn").classList.add("hidden");
+    $("ctrlHint").innerHTML = "提示：直辖市写城市名（如「北京」），自治区可写简称（如「新疆」「广西」），特别行政区写「香港」「澳门」。";
+    updateStats();
+  }
+
+  function resolve(fbHtml, fbClass, nextLabel){
+    $("feedback").innerHTML = fbHtml;
+    $("feedback").className = "feedback " + fbClass;
+    updateStats();
+    $("answerInput").disabled = true;
+    $("showBtn").classList.add("hidden");
+    $("skipBtn").classList.add("hidden");
+    $("nextBtn").classList.remove("hidden");
+    $("nextBtn").textContent = nextLabel;
+    $("ctrlHint").innerHTML = "✅ 已显示正确答案，请点击「" + nextLabel + "」确认后进入下一题。";
+    $("nextBtn").focus();
+    // 防键盘回车连触：显示确认按钮后的极短时间内忽略确认，
+    // 避免“提交回车”的重复按键立刻激活按钮导致直接跳题。
+    confirmGuard = true;
+    setTimeout(function(){ confirmGuard = false; }, 350);
+  }
+
+  function submitAnswer(){
+    if(resolved) return;
+    var v = $("answerInput").value.trim();
+    if(!v){ $("feedback").textContent = "请先输入答案哦～"; $("feedback").className = "feedback warn"; $("answerInput").focus(); return; }
+    resolved = true; answered++;
+    if(ACCEPT[current].indexOf(v) !== -1){
+      correct++;
+      resolve("✅ 太棒了，回答正确！", "ok", "➡️ 下一题");
+    } else {
+      resolve("❌ 不对哦，正确答案是 <b>" + SHORT[current] + "</b>", "no", "✅ 我记住了，下一题 →");
+    }
+  }
+
+  function showAnswer(){
+    if(resolved) return;
+    resolved = true; answered++;
+    resolve("💡 正确答案是 <b>" + SHORT[current] + "</b>", "info", "✅ 我记住了，下一题 →");
+  }
+
+  function skip(){
+    if(resolved || pos >= order.length) return;
+    resolved = true; answered++;
+    $("feedback").innerHTML = "⏭️ 已跳过，正确答案 <b>" + SHORT[current] + "</b>";
+    $("feedback").className = "feedback info";
+    updateStats();
+    pos++; nextQuestion();
+  }
+
+  function finish(){
+    hide("quizScreen"); show("endScreen");
+    $("endMap").innerHTML = fullMapSVG();
+    var rate = (correct / Math.max(answered,1) * 100).toFixed(1);
+    var msg = "本次共抽取 <b>" + answered + "</b> 个省份，<br>你答对了 <b>" + correct +
+              "</b> 个，<br>正确率 <span class='big'>" + rate + "%</span>！";
+    if(answered > 0 && correct === answered) msg += "<br>🏆 全对，地理小达人！";
+    else if(answered > 0 && (correct/answered) >= 0.8) msg += "<br>👍 非常棒，继续加油！";
+    $("resultText").innerHTML = msg;
+  }
+
+  // 事件
+  $("startBtn").addEventListener("click", startQuiz);
+  $("restartBtn").addEventListener("click", startQuiz);
+  $("showBtn").addEventListener("click", showAnswer);
+  $("skipBtn").addEventListener("click", skip);
+  $("nextBtn").addEventListener("click", function(){ if(confirmGuard) return; pos++; nextQuestion(); });
+  $("answerInput").addEventListener("keydown", function(e){ if(e.key === "Enter") submitAnswer(); });
+
+  // 参考全图弹层
+  $("refBtn").addEventListener("click", function(){ $("refMap").innerHTML = fullMapSVG(); $("refModal").classList.add("show"); });
+  $("refClose").addEventListener("click", function(){ $("refModal").classList.remove("show"); });
+  $("refModal").addEventListener("click", function(e){ if(e.target === $("refModal")) $("refModal").classList.remove("show"); });
+
+  // 初始渲染完整中国地图
+  $("startMap").innerHTML = fullMapSVG();
+})();
+</script>
+</body>
+</html>
